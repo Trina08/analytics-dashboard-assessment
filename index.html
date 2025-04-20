@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV Analytics Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --primary: #6FCF97;
+      --bg: #1B2E20;
+      --white: #fff;
+      --accent: #27AE60;
+      --divider: #2E4D3C;
+    }
+
+    * {
+      cursor: url('cursor.png'), auto;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: var(--bg);
+      color: var(--white);
+      display: flex;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #122818;
+      color: var(--white);
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+
+    .sidebar {
+      background-color: #122818;
+      color: var(--white);
+      width: 250px;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-height: 100vh;
+    }
+
+    .sidebar h2 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .sidebar label {
+      display: block;
+      margin-bottom: 1rem;
+      background-color: #122818;
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .sidebar select {
+      display: block;
+      margin-bottom: 1rem;
+      background-color: #254D36;
+      color: #fff;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .sidebar select:hover {
+      background-color: #3F7C57;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .container {
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .chart-box {
+      background-color: #122818;
+      color: var(--white);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease-in-out;
+      overflow: hidden;
+    }
+
+    .chart-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+
+    .chart-box h3 {
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+      color: var(--primary);
+      text-align: center;
+    }
+
+    .chart-box .chart-wrapper {
+      height: 300px;
+      width: 100%;
+      position: relative;
+    }
+
+    .chart-box.line-chart {
+      grid-column: span 4;
+    }
+
+    .chart-box.line-chart .chart-wrapper {
+      height: 400px;
+    }
+
+    .head-color {
+      color: var(--primary);
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Filter Parameters</h2>
+    <label for="param1">Parameter 1:</label>
+    <select id="param1"></select>
+    <label for="param2">Parameter 2:</label>
+    <select id="param2"></select>
+  </div>
+  <div class="main">
+    <header><span class="head-color">ELECTRIC VEHICLE</span> Analytics Dashboard</header>
+    <div class="container" id="chartContainer"></div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const filePath = './data-to-visualize/Electric_Vehicle_Population_Data.csv';
+      const param1 = document.getElementById('param1');
+      const param2 = document.getElementById('param2');
+
+      const chartTypes = ['bar', 'line', 'pie', 'doughnut', 'radar'];
+
+      function createChart(type, title, labels, data, container, isLineChart) {
+        const chartBox = document.createElement('div');
+        chartBox.className = 'chart-box' + (isLineChart ? ' line-chart' : '');
+        chartBox.innerHTML = `
+          <h3>${title} (${type})</h3>
+          <div class="chart-wrapper">
+            <canvas></canvas>
+          </div>
+        `;
+        container.appendChild(chartBox);
+
+        const ctx = chartBox.querySelector('canvas');
+
+        const colorPalettes = {
+          bar: ['#6FCF97', '#A8E6CF', '#81C784', '#B2FF59'],
+          line: ['#27AE60', '#2ECC71', '#66BB6A', '#81C784'],
+          pie: ['#66BB6A', '#A5D6A7', '#43A047', '#AED581', '#388E3C'],
+          doughnut: ['#C5E1A5', '#81C784', '#4CAF50', '#66BB6A'],
+          radar: ['#AED581', '#8BC34A', '#7CB342', '#9CCC65'],
+        };
+
+        const colors = colorPalettes[type] || ['#4CAF50'];
+
+        new Chart(ctx, {
+          type,
+          data: {
+            labels,
+            datasets: [{
+              label: title,
+              data,
+              backgroundColor: colors,
+              borderColor: colors,
+              borderWidth: 1,
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: type === 'pie' || type === 'doughnut' ? 'bottom' : 'top',
+                labels: {
+                  color: '#fff'
+                }
+              }
+            },
+            scales: type === 'bar' || type === 'line' ? {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+              },
+              x: {
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+              }
+            } : {}
+          }
+        });
+      }
+
+      function updateCharts(data) {
+        const container = document.getElementById('chartContainer');
+        container.innerHTML = '';
+
+        const selected1 = param1.value;
+        const selected2 = param2.value;
+        const groupedData = {};
+
+        data.forEach(row => {
+          const key = `${row[selected1]} | ${row[selected2]}`;
+          if (!groupedData[key]) groupedData[key] = 0;
+          groupedData[key]++;
+        });
+
+        const sorted = Object.entries(groupedData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const labels = sorted.map(e => e[0]);
+        const values = sorted.map(e => e[1]);
+
+        createChart('line', `${selected1} vs ${selected2}`, labels, values, container, true);
+
+        chartTypes.filter(type => type !== 'line').forEach(type => {
+          createChart(type, `${selected1} vs ${selected2}`, labels, values, container, false);
+        });
+      }
+
+      fetch(filePath)
+        .then(response => response.text())
+        .then(csvText => {
+          Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+              const data = results.data;
+              const headers = Object.keys(data[0]);
+              headers.forEach(h => {
+                param1.appendChild(new Option(h, h));
+                param2.appendChild(new Option(h, h));
+              });
+              param1.value = 'Make';
+              param2.value = 'Model Year';
+              updateCharts(data);
+              param1.addEventListener('change', () => updateCharts(data));
+              param2.addEventListener('change', () => updateCharts(data));
+            }
+          });
+        });
+    });
+  </script>
+</body>
+</html>
